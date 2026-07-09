@@ -931,10 +931,12 @@ VOID VmmWinPool_AllPool1903_5_LFH_DoWork(
 ) {
     UCHAR ucBits;
     PBYTE pbBitmap;
-    DWORD iBlock, cBlock, oBlock;
+    DWORD cbBitmap, iBlock, cBlock, oBlock;
     DWORD cbBlockSize, oFirstBlock, dwvaShift;
     P_HEAP_LFH_SUBSEGMENT_ENCODED_OFFSETS pEncoded;
+    if(cb < ctx->po->_HEAP_LFH_SUBSEGMENT.oBlockBitmap) { return; }
     pbBitmap = pb + ctx->po->_HEAP_LFH_SUBSEGMENT.oBlockBitmap;
+    cbBitmap = cb - ctx->po->_HEAP_LFH_SUBSEGMENT.oBlockBitmap;
     pEncoded = (P_HEAP_LFH_SUBSEGMENT_ENCODED_OFFSETS)(pb + ctx->po->_HEAP_LFH_SUBSEGMENT.oBlockOffsets);
     dwvaShift = (H->vmm.kernel.dwVersionBuild >= 26100) ? ((DWORD)(va >> 12)) : ((DWORD)va >> 12);
     pEncoded->EncodedData = (DWORD)(pEncoded->EncodedData ^ ctx->qwKeyLfh ^ dwvaShift);
@@ -942,6 +944,9 @@ VOID VmmWinPool_AllPool1903_5_LFH_DoWork(
     cbBlockSize = pEncoded->BlockSize;
     if((cbBlockSize >= 0xff8) || (oFirstBlock > cb)) { return; }
     cBlock = (cb - oFirstBlock) / cbBlockSize;
+    if(cbBitmap < (cBlock >> 2)) {
+        cBlock = cbBitmap >> 2;
+    }
     for(iBlock = 0; iBlock < cBlock; iBlock++) {
         oBlock = oFirstBlock + iBlock * cbBlockSize;
         if((oBlock & 0xfff) + cbBlockSize > 0x1000) { continue; }   // block do not cross page boundaries

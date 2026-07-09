@@ -96,6 +96,8 @@ BOOL PE_GetThunkInfoIAT(_In_ VMM_HANDLE H, _In_ PVMM_PROCESS pProcess, _In_ QWOR
     pIID = (PIMAGE_IMPORT_DESCRIPTOR)(pbModule + oImportDirectory);
     i = 0, c = 0;
     while((oImportDirectory + (i + 1) * sizeof(IMAGE_IMPORT_DESCRIPTOR) < cbModule) && pIID[i].FirstThunk) {
+        if(pIID[i].OriginalFirstThunk >= cbModule - 64) { i++; continue; }
+        if(pIID[i].FirstThunk >= cbModule - 64) { i++; continue; }
         if(pIID[i].Name > cbModule - 64) { i++; continue; }
         if(f32) {
             // 32-bit PE

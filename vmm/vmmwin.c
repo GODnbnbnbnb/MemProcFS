@@ -555,7 +555,7 @@ VOID VmmWinLdrModule_Initialize32(_In_ VMM_HANDLE H, _In_ PVMM_PROCESS pProcess,
                 continue;
             }
             VmmReadEx(H, pProcess, vaModuleLdr32, pbLdrModule32, sizeof(LDR_MODULE32), &cbReadData, VMM_FLAG_FORCECACHE_READ);
-            if(cbReadData != sizeof(LDR_MODULE64)) {
+            if(cbReadData != sizeof(LDR_MODULE32)) {
                 ObSet_Push(pObSet_vaTry2, vaModuleLdr32);
                 continue;
             }
@@ -605,7 +605,7 @@ VOID VmmWinLdrModule_Initialize32(_In_ VMM_HANDLE H, _In_ PVMM_PROCESS pProcess,
     }
     // save prefetch addresses (if desirable)
     if(H->dev.fVolatile && H->vmm.ThreadProcCache.fEnabled) {
-        ObContainer_SetOb(pProcess->pObPersistent->pObCLdrModulesPrefetch64, pObSet_vaAll);
+        ObContainer_SetOb(pProcess->pObPersistent->pObCLdrModulesPrefetch32, pObSet_vaAll);
     }
 fail:
     Ob_DECREF(pObSet_vaAll);

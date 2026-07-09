@@ -359,7 +359,7 @@ NTSTATUS Util_VfsWriteFile_PBYTE(_Inout_ PBYTE pbTarget, _In_ DWORD cbTarget, _I
     }
     memcpy(pbTarget + cbOffset, pb, cb);
     if(fTerminatingNULL) {
-        pbTarget[min(cbTarget - 1, cb)] = 0;
+        pbTarget[min(cbTarget - 1, (DWORD)(cbOffset + cb))] = 0;
     }
     *pcbWrite = cb;
     return UTIL_NTSTATUS_SUCCESS;
@@ -884,6 +884,7 @@ NTSTATUS Util_VfsLineFixed_Read(
     NTSTATUS nt;
     PVOID pvMapEntry;
     QWORD i, iMapEntry, o = 0, cbMax, cStart, cEnd, cHeader;
+    if(cbLineLength == 0) { return VMMDLL_STATUS_FILE_INVALID; }
     cHeader = (uszHeader && H->cfg.fFileInfoHeader) ? 2 : 0;
     cStart = (DWORD)(cbOffset / cbLineLength);
     cEnd = (DWORD)min(cHeader + cMap - 1, (cb + cbOffset + cbLineLength - 1) / cbLineLength);
@@ -946,6 +947,7 @@ NTSTATUS Util_VfsLineFixedMapCustom_Read(
     NTSTATUS nt;
     PVOID pvMapEntry;
     QWORD i, iMapEntry, o = 0, cbMax, cStart, cEnd, cHeader;
+    if(cbLineLength == 0) { return VMMDLL_STATUS_FILE_INVALID; }
     cHeader = (uszHeader && H->cfg.fFileInfoHeader) ? 2 : 0;
     cStart = (DWORD)(cbOffset / cbLineLength);
     cEnd = (DWORD)min(cHeader + cMap - 1, (cb + cbOffset + cbLineLength - 1) / cbLineLength);

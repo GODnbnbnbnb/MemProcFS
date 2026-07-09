@@ -256,3 +256,4 @@ v5.8
 
 Latest:
 * Bug fixes.
+* PTE map upper limit adjusted from 65536 to 131072.

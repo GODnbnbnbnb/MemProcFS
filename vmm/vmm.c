@@ -754,7 +754,7 @@ VOID VmmProcess_TokenTryEnsure(_In_ VMM_HANDLE H, _In_ PVMMOB_PROCESS_TABLE pt)
     PVMMOB_TOKEN *ppObTokens = NULL;
     PVMM_OFFSET_EPROCESS poe = &H->vmm.offset.EPROCESS;
     // Init:
-    f = poe->opt.TOKEN_TokenId &&
+    f = poe->opt.TOKEN_TokenId && pt->c &&
         (pvaTokens = LocalAlloc(LMEM_ZEROINIT, pt->c * sizeof(QWORD))) &&
         (ppProcess = LocalAlloc(LMEM_ZEROINIT, pt->c * sizeof(PVMM_PROCESS))) &&
         (ppObTokens = LocalAlloc(LMEM_ZEROINIT, pt->c * sizeof(PVMMOB_TOKEN)));
@@ -1135,7 +1135,6 @@ PVMM_PROCESS VmmProcessCreateEntry(_In_ VMM_HANDLE H, _In_ BOOL fTotalRefresh, _
         pProcess->paDTB_Kernel = paDTB_Kernel;
         pProcess->paDTB_UserOpt = paDTB_UserOpt;
         pProcess->fUserOnly = fUserOnly;
-        pProcess->fTlbSpiderDone = pProcess->fTlbSpiderDone;
         pProcess->Plugin.pObCLdrModulesDisplayCache = ObContainer_New();
         pProcess->Plugin.pObCPeDumpDirCache = ObContainer_New();
         pProcess->Plugin.pObCPhys2Virt = ObContainer_New();

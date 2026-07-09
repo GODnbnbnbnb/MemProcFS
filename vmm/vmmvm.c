@@ -235,7 +235,7 @@ QWORD VmmVm_DoWork_NewHvMemTranslateHvp(_In_ VMM_HANDLE H, _In_ PVMMOB_VMGLOBAL_
         cRangeMax <<= 1;
     }
     // 3: Allocate "GPAR" internal object:
-    ctxObT = Ob_AllocEx(H, OB_TAG_VM_CONTEXT, LMEM_ZEROINIT, sizeof(VMMVMOB_VMHVTRANSLATE_CONTEXT) + cRangeMax * sizeof(VMMVMOB_VMHVTRANSLATE_CONTEXT), NULL, NULL);
+    ctxObT = Ob_AllocEx(H, OB_TAG_VM_CONTEXT, LMEM_ZEROINIT, sizeof(VMMVMOB_VMHVTRANSLATE_CONTEXT) + cRangeMax * sizeof(VMMVM_VMHVTRANSLATE_GPAR), NULL, NULL);
     if(!ctxObT) { goto fail; }
     ctxObT->cAll = cRangeMax;
     // 4: Walk RB tree to retrieve ranges:
@@ -335,7 +335,7 @@ QWORD VmmVm_DoWork_NewHvMemTranslate(_In_ VMM_HANDLE H, _In_ PVMMOB_VMGLOBAL_CON
         ObSet_Push_PageAlign(pVMG->psPrefetch, pvaGparArray[i], pVMG->offset.gpar.cb);
     }
     // 4: Allocate GPAR internal object
-    ctxObT = Ob_AllocEx(H, OB_TAG_VM_CONTEXT, LMEM_ZEROINIT, sizeof(VMMVMOB_VMHVTRANSLATE_CONTEXT) + GparHandle.cGpar * sizeof(VMMVMOB_VMHVTRANSLATE_CONTEXT), NULL, NULL);
+    ctxObT = Ob_AllocEx(H, OB_TAG_VM_CONTEXT, LMEM_ZEROINIT, sizeof(VMMVMOB_VMHVTRANSLATE_CONTEXT) + GparHandle.cGpar * sizeof(VMMVM_VMHVTRANSLATE_GPAR), NULL, NULL);
     if(!ctxObT) { goto fail; }
     ctxObT->vaGparArray = GparHandle.vaGparArray;
     ctxObT->cAll = GparHandle.cGpar;
