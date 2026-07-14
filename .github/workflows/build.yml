@@ -3,8 +3,8 @@ name: Build and Release Windows DLL
 on:
   push:
     tags:
-      - 'v*' # 只有打 v 开头的标签才会自动发 Release
-  workflow_dispatch: # 允许在网页端手动点击运行测试
+      - 'v*'
+  workflow_dispatch:
 
 jobs:
   build-and-release:
@@ -16,23 +16,27 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
 
+    - name: Checkout LeechCore (Dependency)
+      # MemProcFS 强依赖同级目录下的 LeechCore 才能编译通过
+      uses: actions/checkout@v4
+      with:
+        repository: ufrisk/LeechCore
+        path: ../LeechCore
+
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@v2
 
-    - name: Build Solution
+    - name: Build ONLY vmm.dll
       run: |
-        # 【修改提示 1】这里写你的 .sln 解决方案文件路径
-        msbuild MemProcFS.sln /p:Configuration=Release /p:Platform=x64 /maxcpucount
+        # 直接指定编译 vmm.vcxproj，跳过 python/C# 绑定和其他示例项目
+        msbuild vmm\vmm.vcxproj /p:Configuration=Release /p:Platform=x64 /maxcpucount
 
     - name: Collect Artifacts
       run: |
         mkdir release_output
-        # 【修改提示 2】这里写编译后生成的 dll 路径
-        # 如果你编译的是 MemProcFS，通常在 vmm\x64\Release\vmm.dll
+        # 提取生成的 vmm.dll 和可能用到的 pdb 文件
         copy "vmm\x64\Release\vmm.dll" release_output\
-        
-        # 如果你编译的是 LeechCore，可能是下面这样，把上面的 copy 删掉换成这个：
-        # copy "leechcore\x64\Release\leechcore.dll" release_output\
+        copy "vmm\x64\Release\vmm.pdb" release_output\ || echo "No PDB found, skipping"
 
     - name: Create Release and Upload Assets
       uses: softprops/action-gh-release@v2
