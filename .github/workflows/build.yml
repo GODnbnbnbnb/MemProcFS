@@ -24,15 +24,14 @@ jobs:
 
     - name: Build ONLY vmm.dll via Solution
       run: |
-        # 编译 MemProcFS.sln 以保证路径宏正确，但使用 /t:vmm 指令强制仅编译我们需要的那个 dll
         msbuild MemProcFS.sln /t:vmm /p:Configuration=Release /p:Platform=x64 /maxcpucount
 
     - name: Collect Artifacts
+      shell: cmd
       run: |
         mkdir release_output
-        # 提取生成的文件（根据 MemProcFS 的配置，产物会被统一放在根目录的 files 文件夹下）
         copy "files\vmm.dll" release_output\
-        copy "files\vmm.pdb" release_output\ || echo "No PDB found, skipping"
+        if exist "files\vmm.pdb" copy "files\vmm.pdb" release_output\
 
     - name: Create Release and Upload Assets
       uses: softprops/action-gh-release@v2
