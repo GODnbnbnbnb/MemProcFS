@@ -52,7 +52,7 @@ static volatile BOOL g_bLogThreadActive = FALSE;
 static FILE* g_fpLog = NULL;
 
 DWORD WINAPI AsyncLogThreadProc(LPVOID lpParam) {
-    fopen_s(&g_fpLog, "C:\\vmm_api_trace.log", "w"); 
+    fopen_s(&g_fpLog, "vmm_api_trace.log", "w"); 
     if (!g_fpLog) return 0;
     
     while (g_bLogThreadActive || g_LogBuffers[0].count > 0 || g_LogBuffers[1].count > 0) {
