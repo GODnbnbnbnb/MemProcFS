@@ -31,6 +31,93 @@
 #include "vmmyarautil.h"
 #include "mm/mm_pfn.h"
 
+// ----------------------------------------------------------------------------
+// ASYNC API TRACING LOGGER
+// ---------------------------------------------------------------------------- 
+
+#define LOG_BUFFER_LINES 16384
+#define LOG_LINE_MAX 256
+
+typedef struct {
+    char lines[LOG_BUFFER_LINES][LOG_LINE_MAX];
+    LONG count;
+} LOG_BUFFER;
+
+static LOG_BUFFER g_LogBuffers[2];
+static volatile LONG g_ActiveLogBufferIdx = 0;
+static CRITICAL_SECTION g_LogCS;
+static HANDLE g_hLogThread = NULL;
+static HANDLE g_hLogEvent = NULL;
+static volatile BOOL g_bLogThreadActive = FALSE;
+static FILE* g_fpLog = NULL;
+
+DWORD WINAPI AsyncLogThreadProc(LPVOID lpParam) {
+    fopen_s(&g_fpLog, "C:\\vmm_api_trace.log", "w"); 
+    if (!g_fpLog) return 0;
+    
+    while (g_bLogThreadActive || g_LogBuffers[0].count > 0 || g_LogBuffers[1].count > 0) {
+        WaitForSingleObject(g_hLogEvent, 500);
+        
+        LOG_BUFFER* pProcessBuffer = NULL;
+        EnterCriticalSection(&g_LogCS);
+        LONG activeIdx = g_ActiveLogBufferIdx;
+        if (g_LogBuffers[activeIdx].count > 0) {
+            pProcessBuffer = &g_LogBuffers[activeIdx];
+            g_ActiveLogBufferIdx = 1 - activeIdx; 
+            g_LogBuffers[g_ActiveLogBufferIdx].count = 0; 
+        }
+        LeaveCriticalSection(&g_LogCS);
+        
+        if (pProcessBuffer && pProcessBuffer->count > 0) {
+            for (LONG i = 0; i < pProcessBuffer->count; i++) {
+                fputs(pProcessBuffer->lines[i], g_fpLog);
+            }
+            fflush(g_fpLog);
+        }
+    }
+    fclose(g_fpLog);
+    return 0;
+}
+
+// 通用的 API 日志记录函数，用法和 printf 一样
+void LogApiCall(const char* format, ...) {
+    if (!g_bLogThreadActive) return;
+    EnterCriticalSection(&g_LogCS);
+    LOG_BUFFER* pBuf = &g_LogBuffers[g_ActiveLogBufferIdx];
+    if (pBuf->count < LOG_BUFFER_LINES) {
+        va_list args;
+        va_start(args, format);
+        vsnprintf(pBuf->lines[pBuf->count], LOG_LINE_MAX, format, args);
+        va_end(args);
+        pBuf->count++;
+        if (pBuf->count >= LOG_BUFFER_LINES) {
+            SetEvent(g_hLogEvent);
+        }
+    }
+    LeaveCriticalSection(&g_LogCS);
+}
+
+void InitAsyncLogger() {
+    InitializeCriticalSection(&g_LogCS);
+    g_LogBuffers[0].count = 0;
+    g_LogBuffers[1].count = 0;
+    g_bLogThreadActive = TRUE;
+    g_hLogEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+    g_hLogThread = CreateThread(NULL, 0, AsyncLogThreadProc, NULL, 0, NULL);
+}
+
+void CleanupAsyncLogger() {
+    g_bLogThreadActive = FALSE;
+    if(g_hLogEvent) SetEvent(g_hLogEvent);
+    if (g_hLogThread) {
+        WaitForSingleObject(g_hLogThread, 3000);
+        CloseHandle(g_hLogThread);
+    }
+    if(g_hLogEvent) CloseHandle(g_hLogEvent);
+    DeleteCriticalSection(&g_LogCS);
+}
+// ----------------------------------------------------------------------------
+
 #define VMM_HANDLE_IS_REMOTE(H)         (((SIZE_T)H) & 1)
 
 // tags for external allocations:
@@ -69,6 +156,7 @@
 EXPORTED_FUNCTION _Success_(return != NULL)
 VMM_HANDLE VMMDLL_InitializeEx(_In_ DWORD argc, _In_ LPCSTR argv[], _Out_opt_ PPLC_CONFIG_ERRORINFO ppLcErrorInfo)
 {
+    InitAsyncLogger(); // <--- 添加这行启动日志线程
     return VmmDllCore_Initialize(argc, argv, ppLcErrorInfo);
 }
 
@@ -86,12 +174,14 @@ VOID VMMDLL_Close(_In_opt_ _Post_ptr_invalid_ VMM_HANDLE H)
         VmmDllRemote_Close(H);
         return;
     }
+    CleanupAsyncLogger(); // <--- 添加这行关闭单例日志
     VmmDllCore_Close(H);
 }
 
 EXPORTED_FUNCTION
 VOID VMMDLL_CloseAll()
 {
+    CleanupAsyncLogger(); // <--- 添加这行关闭单例日志
     VmmDllCore_CloseAll();
     VmmDllRemote_CloseAll();
 }
@@ -752,6 +842,16 @@ DWORD VMMDLL_MemReadScatter_Impl(_In_ VMM_HANDLE H, _In_ DWORD dwPID, _Inout_ PP
 
 DWORD VMMDLL_MemReadScatter(_In_ VMM_HANDLE H, _In_ DWORD dwPID, _Inout_ PPMEM_SCATTER ppMEMs, _In_ DWORD cpMEMs, _In_ DWORD flags)
 {
+    // ---> API 追踪开始 <---
+    LogApiCall("[API] VMMDLL_MemReadScatter(dwPID=%u, cpMEMs=%u) START:\n", dwPID, cpMEMs);
+    if (ppMEMs && cpMEMs > 0) {
+        for (DWORD i = 0; i < cpMEMs; i++) {
+            if (ppMEMs[i]) {
+                LogApiCall("      -> Req[%u]: VA=0x%llx, Size=0x%x\n", i, ppMEMs[i]->qwA, ppMEMs[i]->cb);
+            }
+        }
+    }
+    // ---> API 追踪结束 <---
     CALL_IMPLEMENTATION_VMM_RETURN(
         H,
         STATISTICS_ID_VMMDLL_MemReadScatter,
@@ -2473,6 +2573,7 @@ BOOL VMMDLL_PidGetFromName_Impl(_In_ VMM_HANDLE H, _In_ LPCSTR szProcName, _Out_
 _Success_(return)
 BOOL VMMDLL_PidGetFromName(_In_ VMM_HANDLE H, _In_ LPCSTR szProcName, _Out_ PDWORD pdwPID)
 {
+    LogApiCall("[API] VMMDLL_PidGetFromName(szProcName=\"%s\")\n", szProcName ? szProcName : "NULL");
     CALL_IMPLEMENTATION_VMM(
         H,
         STATISTICS_ID_VMMDLL_PidGetFromName,
@@ -2721,6 +2822,7 @@ ULONG64 VMMDLL_ProcessGetModuleBase_Impl(_In_ VMM_HANDLE H, _In_ DWORD dwPID, _I
 _Success_(return != 0)
 ULONG64 VMMDLL_ProcessGetModuleBaseU(_In_ VMM_HANDLE H, _In_ DWORD dwPID, _In_ LPCSTR uszModuleName)
 {
+    LogApiCall("[API] VMMDLL_ProcessGetModuleBaseU(dwPID=%u, uszModuleName=\"%s\")\n", dwPID, uszModuleName ? uszModuleName : "NULL");
     CALL_IMPLEMENTATION_VMM_RETURN(
         H,
         STATISTICS_ID_VMMDLL_ProcessGetModuleBase,
