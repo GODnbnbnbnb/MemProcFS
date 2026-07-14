@@ -16,25 +16,20 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Checkout LeechCore (Dependency)
-      # MemProcFS 强依赖同级目录下的 LeechCore 才能编译通过
-      uses: actions/checkout@v4
-      with:
-        repository: ufrisk/LeechCore
-        path: ../LeechCore
+    - name: Clone LeechCore (Dependency)
+      # 直接用 git clone 拉取到上一级目录，完美绕过 Actions 的路径限制
+      run: git clone https://github.com/ufrisk/LeechCore.git ..\LeechCore
 
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@v2
 
     - name: Build ONLY vmm.dll
       run: |
-        # 直接指定编译 vmm.vcxproj，跳过 python/C# 绑定和其他示例项目
         msbuild vmm\vmm.vcxproj /p:Configuration=Release /p:Platform=x64 /maxcpucount
 
     - name: Collect Artifacts
       run: |
         mkdir release_output
-        # 提取生成的 vmm.dll 和可能用到的 pdb 文件
         copy "vmm\x64\Release\vmm.dll" release_output\
         copy "vmm\x64\Release\vmm.pdb" release_output\ || echo "No PDB found, skipping"
 
