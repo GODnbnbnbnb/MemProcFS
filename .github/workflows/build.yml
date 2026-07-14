@@ -17,21 +17,22 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Clone LeechCore (Dependency)
-      # 直接用 git clone 拉取到上一级目录，完美绕过 Actions 的路径限制
       run: git clone https://github.com/ufrisk/LeechCore.git ..\LeechCore
 
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@v2
 
-    - name: Build ONLY vmm.dll
+    - name: Build ONLY vmm.dll via Solution
       run: |
-        msbuild vmm\vmm.vcxproj /p:Configuration=Release /p:Platform=x64 /maxcpucount
+        # 编译 MemProcFS.sln 以保证路径宏正确，但使用 /t:vmm 指令强制仅编译我们需要的那个 dll
+        msbuild MemProcFS.sln /t:vmm /p:Configuration=Release /p:Platform=x64 /maxcpucount
 
     - name: Collect Artifacts
       run: |
         mkdir release_output
-        copy "vmm\x64\Release\vmm.dll" release_output\
-        copy "vmm\x64\Release\vmm.pdb" release_output\ || echo "No PDB found, skipping"
+        # 提取生成的文件（根据 MemProcFS 的配置，产物会被统一放在根目录的 files 文件夹下）
+        copy "files\vmm.dll" release_output\
+        copy "files\vmm.pdb" release_output\ || echo "No PDB found, skipping"
 
     - name: Create Release and Upload Assets
       uses: softprops/action-gh-release@v2
